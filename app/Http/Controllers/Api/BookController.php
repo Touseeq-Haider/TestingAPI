@@ -1,46 +1,91 @@
 <?php
 namespace App\Http\Controllers\Api;
-
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Book;
+use App\Http\Requests\StoreBookRequest;
 use App\Http\Resources\BookResource;
-
+use App\Models\Book;
+use Illuminate\Http\Request;
 
 class BookController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return BookResource::collection(Book::all());
+        $query = Book::query();
+
+        //  Search (title / author)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('author', 'like', "%{$search}%");
+            });
+        }
+
+        // Sorting
+        $sortBy = $request->get('sort_by', 'latest');
+        $order  = $request->get('order', 'desc');
+
+        if ($sortBy === 'price') {
+            $query->orderBy('price', $order === 'asc' ? 'asc' : 'desc');
+        } else {
+            // default latest
+            $query->latest();
+        }
+
+        //  Pagination
+        $perPage = $request->get('per_page', 5);
+        $books   = $query->paginate($perPage);
+
+        return ApiResponse::success(
+            BookResource::collection($books),
+            'Books fetched successfully',
+            200,
+            [
+                'current_page' => $books->currentPage(),
+                'total'        => $books->total(),
+                'per_page'     => $books->perPage(),
+            ]
+        );
     }
 
-    public function store(Request $request)
+    public function store(StoreBookRequest $request)
     {
-        $data = $request->validate([
-            'title'  => 'required|string',
-            'author' => 'required|string',
-            'price'  => 'required|numeric',
-        ]);
+        $book = Book::create($request->validated());
+        return ApiResponse::success(
+            new BookResource($book),
+            'Book created successfully',
+            201
+        );
 
-        $book = Book::create($data);
-
-        return new BookResource($book);
     }
 
     public function show(Book $book)
     {
-        return response()->json($book, 200);
+        return ApiResponse::success(
+            new BookResource($book),
+            'Book details fetched'
+        );
+
     }
 
-    public function update(Request $request, Book $book)
+    public function update(StoreBookRequest $request, Book $book)
     {
-        $book->update($request->all());
-        return response()->json($book, 200);
+        $book->update($request->validated());
+        return ApiResponse::success(
+            new BookResource($book),
+            'Book updated successfully'
+        );
+
     }
 
     public function destroy(Book $book)
     {
         $book->delete();
-        return response()->json(['message' => 'Deleted'], 200);
+        return ApiResponse::success(
+            null,
+            'Book deleted successfully'
+        );
+
     }
 }
