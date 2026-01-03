@@ -1,8 +1,8 @@
 <?php
 namespace App\Models;
 
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -33,4 +33,20 @@ class User extends Authenticatable
             'password'          => 'hashed',
         ];
     }
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+    public function hasPermission(string $permission): bool
+    {
+        $permissions = match ($this->role) {
+            'admin'  => ['create', 'update', 'delete', 'view'],
+            'editor' => ['create', 'update', 'view'],
+            'viewer' => ['view'],
+            default  => [],
+        };
+
+        return in_array($permission, $permissions);
+    }
+
 }

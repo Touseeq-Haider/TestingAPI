@@ -28,4 +28,9 @@ return new class extends Migration
     {
         Schema::dropIfExists('books');
     }
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
+
 };
